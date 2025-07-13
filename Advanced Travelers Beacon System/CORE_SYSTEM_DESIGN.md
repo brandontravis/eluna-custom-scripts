@@ -250,6 +250,133 @@ CREATE TABLE player_instance_discovery (
 
 ---
 
+## 📋 **Current Implementation Status**
+
+### **Phase 1: Core System** - ✅ **COMPLETE (100%)**
+- ✅ All 4 beacon capacity tiers implemented (Traveler's → Master's Travel)
+- ✅ Basic teleportation and location storage working
+- ✅ Capacity upgrade system functional (expensive, level-gated)
+- ✅ Location transfer between beacon tiers working
+- ✅ Upgrade NPC with capacity upgrade menus
+- ✅ Database integration for beacon locations
+- ✅ Cooldown and reagent system operational
+
+### **Phase 2: Basic Functionality Upgrades** - 🔄 **IN PROGRESS (10%)**
+- ✅ Functionality upgrade menu framework created
+- ✅ Capital Networks upgrade planned (Level 25+)
+- ⏳ Portal casting upgrade (Level 30+) - **NEXT PRIORITY**
+- ⏳ Dungeon access upgrade (Level 15+) - **NEXT PRIORITY**
+- ⏳ Database table for player_beacon_functionality
+- ⏳ Independent upgrade system implementation
+
+### **Phase 3: Advanced Functionality** - ⏳ **NOT STARTED (0%)**
+- ⏳ Raid access upgrade (Level 60+)
+- ⏳ World Events upgrade (Level 35+)
+- ⏳ Instance discovery tracking
+- ⏳ Complete two-path upgrade system integration
+
+### **Overall Progress: ~35% Complete**
+
+---
+
+## 🎯 **Remaining Tasks**
+
+### **Immediate Priority (Next Session)**
+1. **Implement player_beacon_functionality database table** COMPLETE
+   - Track which functionality upgrades each player has purchased
+   - Add upgrade purchase/validation logic
+
+2. **Capital Networks Functionality** COMPLETE
+   - Create instant teleport menu for all major cities
+   - Add separate menu section for capital city access
+   - Implement cross-faction availability
+
+3. **Portal Casting Upgrade**
+   - Add portal creation menu options
+   - Implement portal stone reagent consumption
+   - Create portal objects with proper duration/mechanics
+
+4. **Dungeon Access Upgrade**
+   - Add instance discovery tracking
+   - Create dungeon entrance teleportation menu
+   - Implement discovery-based availability
+
+### **Medium Priority**
+1. **Raid Access System**
+   - Extend dungeon system to raid entrances
+   - Add raid-specific discovery mechanics
+
+2. **World Events Integration**
+   - Add seasonal location tracking
+   - Implement dynamic event-based availability
+
+3. **Polish and Optimization**
+   - Remove debug output
+   - Performance optimization
+   - Error handling improvements
+   - npc_text and menu description optimization
+   - polish animations, add animations to upgrades being performed, etc.
+   - cleanup flavortext (remove mystical etc)
+   - add cooldown animation if possible
+   - text limitations and usage (can't use in dalaran right now ... need to test combat, etc)
+
+---
+
+## 🛠️ **Technical Implementation Details: Gossip System**
+
+### **Event Registration (Lines 868-869)**
+```lua
+RegisterCreatureGossipEvent(UPGRADE_NPC_ID, 1, OnUpgradeNPCGossip)      -- Event 1: Menu Open
+RegisterCreatureGossipEvent(UPGRADE_NPC_ID, 2, OnUpgradeNPCGossipSelect) -- Event 2: Option Select
+```
+
+### **Gossip Handler Functions (Lines 429-662)**
+
+#### **OnUpgradeNPCGossip (Event 1 - Menu Open)**
+- **Purpose:** Called when player first clicks the NPC
+- **Function:** Sets up the initial menu with main options
+- **Return Value:** No explicit return (implicit `return nil`)
+- **Key Actions:**
+  - `player:GossipClearMenu()` - Clears any existing menu
+  - `player:GossipMenuAddItem()` - Adds menu options with intids
+  - `player:GossipSendMenu()` - Displays the menu to player
+
+#### **OnUpgradeNPCGossipSelect (Event 2 - Option Select)**
+- **Purpose:** Called when player selects a menu option
+- **Function:** Routes player selection to appropriate submenu or action
+- **Return Value:** **CRITICAL** - Controls gossip menu behavior
+
+### **CRITICAL: Return Value Behavior**
+
+#### **`return true`** - Keep Gossip Menu System Active
+- **Use Case:** When showing submenus or navigating between menus
+- **Effect:** Gossip system remains active, allowing further menu interactions
+- **Examples:**
+  - `intid == 2000` (Show capacity upgrade menu) → `return true`
+  - `intid == 3000` (Show functionality menu) → `return true`
+  - `intid == 4000` (Back to main menu) → `return true`
+
+#### **`return false`** - Close Gossip Menu System
+- **Use Case:** When completing transactions or final actions
+- **Effect:** Gossip system closes, player returns to normal gameplay
+- **Examples:**
+  - `intid >= 6001 and intid <= 6003` (Perform upgrade) → `return false`
+  - `intid == 9999` (Close/Cancel) → `return false`
+
+#### **`player:GossipComplete()`** - Force Close Current Menu
+- **Purpose:** Immediately terminates the gossip interaction
+- **Usage:** Called before `return false` when transaction is complete. Do NOT call with return true in the menu system
+- **Effect:** Ensures clean menu closure and prevents ghost menus
+
+### **Common Debugging Issues**
+1. **Wrong Return Values:** Using `return false` when showing submenus causes menu to close unexpectedly
+2. **Missing GossipComplete():** Forgetting to call before final `return false` can leave menu in inconsistent state
+3. **Inconsistent Return Patterns:** Mixing return types within same function flow causes unpredictable behavior
+
+**The debugging session revealed that incorrect return values were causing the upgrade menu to close prematurely instead of processing the upgrade selection, which took extensive debugging to identify.**
+
+---
+
 ## 🔄 **Future Expansion Ideas**
 
 ### **Guild Features**
