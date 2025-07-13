@@ -362,21 +362,22 @@ end
 -- =============================================
 
 local UPGRADE_NPC_ID = 800001
+
+-- Capacity upgrade costs (beacon tier upgrades)
 local UPGRADE_COSTS = {
     [800002] = {gold = 1000, level = 20, name = "Dual Anchor Beacon"},    -- Tier 1 -> Tier 2
     [800003] = {gold = 2500, level = 40, name = "Travel Network Beacon"}, -- Tier 2 -> Tier 3
     [800004] = {gold = 5000, level = 60, name = "Master's Travel Beacon"} -- Tier 3 -> Tier 4
 }
 
--- Get player's current beacon item
--- local function GetPlayerBeacon(player)
---     for itemId, beaconData in pairs(BEACON_ITEMS) do
---         if player:HasItem(itemId) then
---             return itemId, beaconData
---         end
---     end
---     return nil, nil
--- end
+-- Functionality upgrade costs (independent of beacon tier)
+local FUNCTIONALITY_COSTS = {
+    capital_networks = {gold = 500, level = 25, name = "Capital Networks", description = "Instant access to all major cities"},
+    portal_casting = {gold = 750, level = 30, name = "Portal Casting", description = "Create portals for other players"},
+    dungeon_access = {gold = 300, level = 15, name = "Dungeon Access", description = "Teleport to discovered dungeon entrances"},
+    raid_access = {gold = 1000, level = 60, name = "Raid Access", description = "Teleport to discovered raid entrances"},
+    world_events = {gold = 400, level = 35, name = "World Events", description = "Access to seasonal event locations"}
+}
 
 -- Get next tier beacon for current beacon
 local function GetNextTierBeacon(currentBeaconId)
@@ -424,54 +425,36 @@ local function UpgradeBeacon(player, oldBeaconId, newBeaconId, cost)
     print("DEBUG UPGRADE: Upgraded beacon " .. oldBeaconId .. " to " .. newBeaconId .. " for player " .. playerGuid)
 end
 
--- Show upgrade menu
-local function ShowUpgradeMenu(player)
-    
-end
-
 -- Upgrade NPC gossip handler
 local function OnUpgradeNPCGossip(event, player, object)
+    print("DEBUG UPGRADE GOSSIP: OnUpgradeNPCGossip called")
     if object:GetEntry() ~= UPGRADE_NPC_ID then
         return false
     end
 
+    print("DEBUG UPGRADE GOSSIP: Showing main upgrade menu")
     player:GossipClearMenu()
     
-    -- print("DEBUG UPGRADE: Starting beacon detection")
-    -- local currentBeaconId, currentBeaconData = GetPlayerBeacon(player)
-    -- print("DEBUG UPGRADE: Current beacon ID: " .. tostring(currentBeaconId))
-    
-    -- if not currentBeaconId then
-    --     print("DEBUG UPGRADE: Player has no beacon - showing error message")
-    --     player:GossipMenuAddItem(0, "You don't have a beacon yet!", 0, 9999)
-    --     player:GossipMenuAddItem(0, "Close", 0, 9999)
-    --     print("DEBUG UPGRADE: Sending no-beacon menu")
-    --     player:GossipSendMenu(1, object)
-    --     return
-    -- end
-    
-    -- -- If we get here, player has a beacon
-    -- print("DEBUG UPGRADE: Player has beacon: " .. currentBeaconData.name)
-    -- player:GossipMenuAddItem(0, "You have: " .. currentBeaconData.name, 0, 9999)
-    -- player:GossipMenuAddItem(0, "Close", 0, 9999)
-    -- print("DEBUG UPGRADE: Sending has-beacon menu")
-    -- player:GossipSendMenu(1, object)
-    -- return
+    -- Just show the main menu - let submenus handle the specific logic
+    player:GossipMenuAddItem(0, "Upgrade Beacon Capacity", 0, 2000)
+    player:GossipMenuAddItem(0, "Add Functionality Upgrades", 0, 3000)
+    player:GossipMenuAddItem(0, "Close", 0, 9999)
+    player:GossipSendMenu(800010, object)
+    return
+end
 
-
-
-
-
-
-
-
-
+-- Show capacity upgrade submenu
+local function ShowCapacityUpgradeMenu(player, object)
+    print("DEBUG CAPACITY MENU: ShowCapacityUpgradeMenu called")
+    print("DEBUG CAPACITY MENU: Call stack trace:")
+    print(debug.traceback())
     local currentBeaconId, currentBeaconData = GetPlayerBeacon(player)
-    
+    print("DEBUG CAPACITY MENU: Current beacon ID: " .. tostring(currentBeaconId))
     player:GossipClearMenu()
     
     if not currentBeaconId then
-        player:GossipMenuAddItem(0, "Close", 0, 9999)
+        player:GossipMenuAddItem(0, "You don't have a beacon", 0, 9999)
+        player:GossipMenuAddItem(0, "Back to main menu", 0, 4000)
         player:GossipSendMenu(800001, object)
         return
     end
@@ -479,14 +462,14 @@ local function OnUpgradeNPCGossip(event, player, object)
     local nextBeaconId, nextBeaconData = GetNextTierBeacon(currentBeaconId)
     
     if not nextBeaconId then
-        player:GossipMenuAddItem(0, "Close", 0, 9999)
+        player:GossipMenuAddItem(0, "Back to main menu", 0, 4000)
         player:GossipSendMenu(800002, object)
         return
     end
     
     local upgradeCost = UPGRADE_COSTS[nextBeaconId]
     if not upgradeCost then
-        player:GossipMenuAddItem(0, "Close", 0, 9999)
+        player:GossipMenuAddItem(0, "Back to main menu", 0, 4000)
         player:GossipSendMenu(800003, object)
         return
     end
@@ -494,7 +477,7 @@ local function OnUpgradeNPCGossip(event, player, object)
     -- Check requirements
     local playerLevel = player:GetLevel()
     local playerGold = player:GetCoinage()
-    local requiredGold = upgradeCost.gold * 10000 -- Convert to copper
+    local requiredGold = upgradeCost.gold * 10000
     
     local canUpgrade = true
     local reasons = {}
@@ -509,10 +492,9 @@ local function OnUpgradeNPCGossip(event, player, object)
         table.insert(reasons, "Requires " .. upgradeCost.gold .. " gold")
     end
     
-    -- Determine appropriate text ID
+    -- Determine appropriate text ID and menu
     local textId
     if canUpgrade then
-        -- Use tier-specific upgrade text
         if currentBeaconData.tier == 1 then
             textId = 800004  -- Tier 1 to 2
         elseif currentBeaconData.tier == 2 then
@@ -524,34 +506,87 @@ local function OnUpgradeNPCGossip(event, player, object)
         end
         
         local menuText = string.format("Yes, upgrade to %s (%d gold)", upgradeCost.name, upgradeCost.gold)
-        local upgradeIntId = 1000 + currentBeaconData.tier  -- 1001 for tier 1→2, 1002 for tier 2→3, etc.
+        local upgradeIntId = 6000 + currentBeaconData.tier  -- Use 6001, 6002, 6003 for upgrades
+        print("DEBUG CAPACITY MENU: About to add menu item:")
+        print("  Text: " .. menuText)
+        print("  IntId: " .. upgradeIntId) 
+        print("  Tier: " .. currentBeaconData.tier)
         player:GossipMenuAddItem(0, menuText, 0, upgradeIntId)
+        print("DEBUG CAPACITY MENU: Menu item added successfully")
     else
-        -- Use requirement-specific cannot upgrade text
         local needsLevel = playerLevel < upgradeCost.level
         local needsGold = playerGold < requiredGold
         
         if needsLevel and needsGold then
-            textId = 800009  -- Both level and gold
+            textId = 800009
         elseif needsLevel then
-            textId = 800007  -- Level only
+            textId = 800007
         elseif needsGold then
-            textId = 800008  -- Gold only
+            textId = 800008
         else
-            textId = 800010  -- Fallback
+            textId = 800010
         end
     end
     
-    player:GossipMenuAddItem(0, "Close", 0, 9999)
+    print("DEBUG CAPACITY MENU: Adding 'Back to main menu' with intid 4000")
+    player:GossipMenuAddItem(0, "Back to main menu", 0, 4000)
+    print("DEBUG CAPACITY MENU: Sending menu with textId " .. textId)
     player:GossipSendMenu(textId, object)
-    return
+end
+
+-- Show functionality upgrade submenu
+local function ShowFunctionalityUpgradeMenu(player, object)
+    print("DEBUG FUNCTIONALITY MENU: ShowFunctionalityUpgradeMenu called")
+    player:GossipClearMenu()
+    
+    -- For now, just show placeholder options
+    player:GossipMenuAddItem(0, "Capital Networks (25g, Level 25)", 0, 5001)
+    player:GossipMenuAddItem(0, "Portal Casting (75g, Level 30)", 0, 5002)
+    player:GossipMenuAddItem(0, "Dungeon Access (30g, Level 15)", 0, 5003)
+    player:GossipMenuAddItem(0, "Raid Access (100g, Level 60)", 0, 5004)
+    player:GossipMenuAddItem(0, "World Events (40g, Level 35)", 0, 5005)
+    
+    print("DEBUG FUNCTIONALITY MENU: Adding 'Back to main menu' with intid 4000")
+    player:GossipMenuAddItem(0, "Back to main menu", 0, 4000)
+    print("DEBUG FUNCTIONALITY MENU: Sending menu with textId 800011")
+    player:GossipSendMenu(800011, object)
 end
 
 -- Upgrade NPC gossip select handler
 local function OnUpgradeNPCGossipSelect(event, player, object, sender, intid, code)
     print("DEBUG UPGRADE SELECT: Player " .. player:GetGUIDLow() .. " selected option " .. intid)
+    print("DEBUG UPGRADE SELECT: intid type: " .. type(intid))
+    print("DEBUG UPGRADE SELECT: intid value: " .. tostring(intid))
     
-    if intid >= 1001 and intid <= 1003 then
+    if intid == 2000 then
+        -- Show capacity upgrade submenu
+        print("DEBUG UPGRADE SELECT: Showing capacity upgrade menu (intid 2000)")
+        ShowCapacityUpgradeMenu(player, object)
+        return true
+    elseif intid == 3000 then
+        -- Show functionality upgrade submenu  
+        ShowFunctionalityUpgradeMenu(player, object)
+        return true
+    elseif intid == 4000 then
+        -- Back to main menu - restart the gossip
+        OnUpgradeNPCGossip(event, player, object)
+        return true
+    elseif intid >= 5001 and intid <= 5005 then
+        -- Functionality upgrade selections
+        local upgradeNames = {
+            [5001] = "Capital Networks",
+            [5002] = "Portal Casting", 
+            [5003] = "Dungeon Access",
+            [5004] = "Raid Access",
+            [5005] = "World Events"
+        }
+        
+        local upgradeName = upgradeNames[intid]
+        print("DEBUG UPGRADE SELECT: Player selected functionality upgrade: " .. upgradeName)
+        player:SendBroadcastMessage("You selected " .. upgradeName .. " - functionality not implemented yet!")
+        
+    elseif intid >= 6001 and intid <= 6003 then
+        print("DEBUG UPGRADE SELECT: Matched capacity upgrade range 6001-6003")
         local currentBeaconId, currentBeaconData = GetPlayerBeacon(player)
         print("DEBUG UPGRADE SELECT: Current beacon ID: " .. tostring(currentBeaconId))
         
@@ -608,14 +643,21 @@ local function OnUpgradeNPCGossipSelect(event, player, object, sender, intid, co
         UpgradeBeacon(player, currentBeaconId, newBeaconId, upgradeCost)
         player:SendBroadcastMessage("Beacon upgraded to " .. newBeaconData.name .. "!")
         player:SendBroadcastMessage("All your saved locations have been transferred.")
+
+        player:GossipComplete()
+        return false
         
     elseif intid == 9999 then
         print("DEBUG UPGRADE SELECT: Player selected Close")
+        player:GossipComplete()
+        return false
     else
         print("DEBUG UPGRADE SELECT: Unknown option selected: " .. intid)
+        print("DEBUG UPGRADE SELECT: No matching condition found - this should not happen")
     end
     
-    player:GossipComplete()
+    print("DEBUG UPGRADE SELECT: Completing gossip and returning false")
+    
     return false
 end
 

@@ -140,6 +140,10 @@ INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
 INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES 
 (800010, 'Welcome to my beacon upgrade service! I can enhance your Traveler\'s Beacon to hold more locations.$B$BShow me your beacon and I\'ll see what I can do for you.');
 
+-- Text 800011: Functionality upgrade menu
+INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES 
+(800011, 'I can also enhance your beacon with special functionality! These upgrades work with any beacon tier and give you access to new travel options.$B$BWhat kind of enhancement interests you?');
+
 -- =============================================
 -- INSTALLATION NOTES
 -- =============================================

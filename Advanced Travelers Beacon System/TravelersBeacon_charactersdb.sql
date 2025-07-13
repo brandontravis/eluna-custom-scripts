@@ -46,6 +46,7 @@ CREATE TABLE `player_beacon_progress` (
   KEY `idx_beacon_tier` (`beacon_tier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tracks player beacon progression and functionality upgrades';
 
+
 -- =============================================
 -- INSTANCE DISCOVERY TABLE (FUTURE)
 -- =============================================
