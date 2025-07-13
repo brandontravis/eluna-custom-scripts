@@ -304,6 +304,33 @@ local DUNGEON_DATA = {
 
 }
 
+-- Comprehensive raid definitions with entrance coordinates
+local RAID_DATA = {
+    -- ===== CLASSIC RAIDS =====
+    [249] = {name = "Onyxia's Lair", expansion = "classic", level = 60, entrance = {mapId = 1, x = -4708.27, y = -3727.64, z = 54.5589, o = 3.72}},
+    [309] = {name = "Zul'Gurub", expansion = "classic", level = 60, entrance = {mapId = 0, x = -11916.7, y = -1215.72, z = 92.289, o = 4.72}},
+    [409] = {name = "Molten Core", expansion = "classic", level = 60, entrance = {mapId = 0, x = -7527.05, y = -1226.77, z = 285.732, o = 2.32}},
+    [469] = {name = "Blackwing Lair", expansion = "classic", level = 60, entrance = {mapId = 0, x = -7527.05, y = -1226.77, z = 285.732, o = 2.32}},
+    [533] = {name = "Naxxramas (WotLK)", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 3668.72, y = -1262.46, z = 243.622, o = 4.785}},
+    
+    -- ===== TBC RAIDS =====
+    [532] = {name = "Karazhan", expansion = "tbc", level = 70, entrance = {mapId = 0, x = -11118.9, y = -2010.33, z = 47.0819, o = 0.649}},
+    [565] = {name = "Gruul's Lair", expansion = "tbc", level = 70, entrance = {mapId = 530, x = 3530.06, y = 5104.08, z = 3.50861, o = 5.51}},
+    [550] = {name = "Serpentshrine Cavern", expansion = "tbc", level = 70, entrance = {mapId = 530, x = 777.89, y = 6763.450, z = -72.1884, o = 5.02}},
+    [548] = {name = "The Eye", expansion = "tbc", level = 70, entrance = {mapId = 530, x = 3087.22, y = 1373.79, z = 184.643, o = 4.79}},
+    [534] = {name = "Mount Hyjal", expansion = "tbc", level = 70, entrance = {mapId = 1, x = -8173.66, y = -4746.36, z = 33.8423, o = 4.93}},
+    [564] = {name = "Black Temple", expansion = "tbc", level = 70, entrance = {mapId = 530, x = -3649.92, y = 317.469, z = 35.2827, o = 2.94}},
+    [580] = {name = "Sunwell Plateau", expansion = "tbc", level = 70, entrance = {mapId = 530, x = 12884.6, y = -7317.69, z = 65.5023, o = 4.799}},
+    
+    -- ===== WOTLK RAIDS =====
+    [615] = {name = "The Obsidian Sanctum", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 3472.43, y = 264.923, z = -120.146, o = 3.27}},
+    [616] = {name = "The Eye of Eternity", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 3781.81, y = 6965.22, z = 104.72, o = 0.435}},
+    [603] = {name = "Ulduar", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 9222.88, y = -1113.59, z = 1216.12, o = 6.27}},
+    [649] = {name = "Trial of the Crusader", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 8590.95, y = 791.792, z = 558.235, o = 3.13}},
+    [631] = {name = "Icecrown Citadel", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 5855.22, y = 2102.03, z = 635.991, o = 3.57}},
+    [724] = {name = "The Ruby Sanctum", expansion = "wotlk", level = 80, entrance = {mapId = 571, x = 3472.43, y = 264.923, z = -120.146, o = 3.27}},
+}
+
 -- Generate suggested level range for a dungeon
 local function GetDungeonLevelRange(recommendedLevel)
     local rangeSize
@@ -326,7 +353,7 @@ local function GetDungeonLevelRange(recommendedLevel)
     return minLevel, maxLevel
 end
 
--- Check if a map ID is a dungeon/raid
+-- Check if a map ID is a dungeon
 local function IsDungeonMap(mapId)
     local isDungeon = DUNGEON_DATA[mapId] ~= nil
     print("DEBUG DUNGEON: IsDungeonMap(" .. mapId .. ") = " .. tostring(isDungeon))
@@ -334,6 +361,16 @@ local function IsDungeonMap(mapId)
         print("DEBUG DUNGEON: Found dungeon data: " .. DUNGEON_DATA[mapId].name)
     end
     return isDungeon
+end
+
+-- Check if a map ID is a raid
+local function IsRaidMap(mapId)
+    local isRaid = RAID_DATA[mapId] ~= nil
+    print("DEBUG RAID: IsRaidMap(" .. mapId .. ") = " .. tostring(isRaid))
+    if isRaid then
+        print("DEBUG RAID: Found raid data: " .. RAID_DATA[mapId].name)
+    end
+    return isRaid
 end
 
 -- Save discovered dungeon to database
@@ -414,6 +451,87 @@ local function GetDiscoveredDungeons(playerGuid)
     end
     
     print("DEBUG DUNGEON: Returning " .. #discoveries .. " discovered dungeons")
+    return discoveries
+end
+
+-- Save discovered raid to database
+local function SaveDiscoveredRaid(playerGuid, mapId)
+    print("DEBUG RAID: SaveDiscoveredRaid called - Player: " .. playerGuid .. ", Map: " .. mapId)
+    
+    local raidInfo = RAID_DATA[mapId]
+    if not raidInfo then
+        print("DEBUG RAID: No raid data found for map " .. mapId)
+        return false
+    end
+    
+    print("DEBUG RAID: Raid info found: " .. raidInfo.name .. " (" .. raidInfo.expansion .. ")")
+    
+    -- Check if already discovered
+    local checkQuery = string.format([[
+        SELECT guid FROM player_instance_discovery 
+        WHERE guid = %d AND map_id = %d
+    ]], playerGuid, mapId)
+    
+    print("DEBUG RAID: Checking if already discovered with query: " .. checkQuery)
+    
+    local result = CharDBQuery(checkQuery)
+    if result then
+        print("DEBUG RAID: Already discovered - not saving again")
+        return false
+    end
+    
+    -- Save new discovery
+    local insertQuery = string.format([[
+        INSERT INTO player_instance_discovery (guid, map_id, instance_name, instance_type, recommended_level, expansion, first_entered)
+        VALUES (%d, %d, '%s', 'raid', %d, '%s', NOW())
+    ]], playerGuid, mapId, raidInfo.name, raidInfo.level, raidInfo.expansion)
+    
+    print("DEBUG RAID: Saving new discovery with query: " .. insertQuery)
+    CharDBExecute(insertQuery)
+    print("DEBUG RAID: Successfully saved " .. raidInfo.name .. " for player " .. playerGuid)
+    
+    return true
+end
+
+-- Get player's discovered raids
+local function GetDiscoveredRaids(playerGuid)
+    print("DEBUG RAID: GetDiscoveredRaids called for player " .. playerGuid)
+    
+    local query = string.format([[
+        SELECT map_id, instance_name, recommended_level, expansion
+        FROM player_instance_discovery
+        WHERE guid = %d AND instance_type = 'raid'
+        ORDER BY expansion, recommended_level
+    ]], playerGuid)
+    
+    print("DEBUG RAID: Query: " .. query)
+    
+    local result = CharDBQuery(query)
+    local discoveries = {}
+    
+    if result then
+        print("DEBUG RAID: Database query returned results")
+        repeat
+            local mapId = result:GetUInt32(0)
+            local name = result:GetString(1)
+            local level = result:GetUInt32(2)
+            local expansion = result:GetString(3)
+            
+            print("DEBUG RAID: Found discovery - Map: " .. mapId .. ", Name: " .. name .. ", Level: " .. level .. ", Expansion: " .. expansion)
+            
+            table.insert(discoveries, {
+                mapId = mapId,
+                name = name,
+                level = level,
+                expansion = expansion,
+                entrance = RAID_DATA[mapId] and RAID_DATA[mapId].entrance or nil
+            })
+        until not result:NextRow()
+    else
+        print("DEBUG RAID: Database query returned no results")
+    end
+    
+    print("DEBUG RAID: Returning " .. #discoveries .. " discovered raids")
     return discoveries
 end
 
@@ -560,8 +678,9 @@ local function ShowBeaconMenu(player, beaconItemId, beaconData, locations)
     local playerUpgrades = GetPlayerFunctionalityUpgrades(playerGuid)
     local hasCapitalNetworks = playerUpgrades.capital_networks
     local hasDungeonAccess = playerUpgrades.dungeon_access
+    local hasRaidAccess = playerUpgrades.raid_access
     
-    print("DEBUG BEACON MENU: Player " .. playerGuid .. " upgrade check - Capital: " .. tostring(hasCapitalNetworks) .. ", Dungeon: " .. tostring(hasDungeonAccess))
+    print("DEBUG BEACON MENU: Player " .. playerGuid .. " upgrade check - Capital: " .. tostring(hasCapitalNetworks) .. ", Dungeon: " .. tostring(hasDungeonAccess) .. ", Raid: " .. tostring(hasRaidAccess))
     
     -- If no locations, show simple setup
     if not locations or not next(locations) then
@@ -578,6 +697,14 @@ local function ShowBeaconMenu(player, beaconItemId, beaconData, locations)
             player:GossipMenuAddItem(0, "Dungeon Access", 0, 8200)
         else
             print("DEBUG BEACON MENU: Not adding Dungeon Access option - player doesn't have upgrade")
+        end
+        
+        -- Add raid access option if player has it
+        if hasRaidAccess then
+            print("DEBUG BEACON MENU: Adding Raid Access option (empty beacon)")
+            player:GossipMenuAddItem(0, "Raid Access", 0, 8300)
+        else
+            print("DEBUG BEACON MENU: Not adding Raid Access option - player doesn't have upgrade")
         end
         
         player:GossipMenuAddItem(0, "Cancel", 0, 9999)
@@ -607,6 +734,14 @@ local function ShowBeaconMenu(player, beaconItemId, beaconData, locations)
             player:GossipMenuAddItem(0, "Dungeon Access", 0, 8200)
         else
             print("DEBUG BEACON MENU: Not adding Dungeon Access option - player doesn't have upgrade")
+        end
+        
+        -- Add raid access option if player has it
+        if hasRaidAccess then
+            print("DEBUG BEACON MENU: Adding Raid Access option (populated beacon)")
+            player:GossipMenuAddItem(0, "Raid Access", 0, 8300)
+        else
+            print("DEBUG BEACON MENU: Not adding Raid Access option - player doesn't have upgrade")
         end
         
         -- Show management menu option only if we have existing locations
@@ -724,6 +859,59 @@ local function ShowDungeonAccessMenu(player, beaconItemId, beaconData)
     player:GossipMenuAddItem(0, "Back to main menu", 0, 8999)
     player:GossipMenuAddItem(0, "Cancel", 0, 9999)
     print("DEBUG DUNGEON MENU: Menu built successfully")
+end
+
+-- Show raid access menu with discovered raids
+local function ShowRaidAccessMenu(player, beaconItemId, beaconData)
+    print("DEBUG RAID MENU: ShowRaidAccessMenu called")
+    player:GossipClearMenu()
+    
+    local playerGuid = player:GetGUIDLow()
+    print("DEBUG RAID MENU: Getting discovered raids for player " .. playerGuid)
+    local discoveredRaids = GetDiscoveredRaids(playerGuid)
+    
+    if not discoveredRaids or #discoveredRaids == 0 then
+        print("DEBUG RAID MENU: No raids discovered - showing empty menu")
+        player:GossipMenuAddItem(0, "No raids discovered yet", 0, 9998)
+        player:GossipMenuAddItem(0, "Back to main menu", 0, 8999)
+        player:GossipMenuAddItem(0, "Cancel", 0, 9999)
+        return
+    end
+    
+    print("DEBUG RAID MENU: Found " .. #discoveredRaids .. " discovered raids")
+    
+    -- Sort raids by expansion and level
+    table.sort(discoveredRaids, function(a, b)
+        local raidA = RAID_DATA[a.mapId]
+        local raidB = RAID_DATA[b.mapId]
+        
+        if raidA.expansion ~= raidB.expansion then
+            local expansionOrder = {classic = 1, tbc = 2, wotlk = 3}
+            return expansionOrder[raidA.expansion] < expansionOrder[raidB.expansion]
+        end
+        
+        return raidA.level < raidB.level
+    end)
+    
+    print("DEBUG RAID MENU: Raids sorted, building menu items")
+    
+    -- Add discovered raids to menu
+    for i, discoveredRaid in ipairs(discoveredRaids) do
+        local raidInfo = RAID_DATA[discoveredRaid.mapId]
+        if raidInfo then
+            local minLevel, maxLevel = GetDungeonLevelRange(raidInfo.level)
+            local menuText = string.format("%s (%s) [%d-%d]", raidInfo.name, raidInfo.expansion:upper(), minLevel, maxLevel)
+            local intentId = 8300 + i
+            print("DEBUG RAID MENU: Adding menu item #" .. i .. " - " .. menuText .. " (intent " .. intentId .. ")")
+            player:GossipMenuAddItem(0, menuText, 0, intentId) -- 8301-8350 for raids
+        else
+            print("DEBUG RAID MENU: ERROR - No raid info found for map " .. discoveredRaid.mapId)
+        end
+    end
+    
+    player:GossipMenuAddItem(0, "Back to main menu", 0, 8999)
+    player:GossipMenuAddItem(0, "Cancel", 0, 9999)
+    print("DEBUG RAID MENU: Menu built successfully")
 end
 
 local function ShowManagementMenu(player, beaconItemId, beaconData, locations)
@@ -1353,6 +1541,13 @@ local function OnBeaconGossipSelect(event, player, item, sender, intid, code)
         player:GossipSendMenu(1, item)
         return false
         
+    elseif intid == 8300 then
+        -- Show raid access menu
+        print("DEBUG BEACON GOSSIP: Player selected Raid Access menu (intent 8300)")
+        ShowRaidAccessMenu(player, itemId, beaconData)
+        player:GossipSendMenu(1, item)
+        return false
+        
     elseif intid >= 8201 and intid <= 8250 then
         -- Dungeon teleportation
         print("DEBUG DUNGEON TELEPORT: Player selected dungeon teleportation with intent " .. intid)
@@ -1415,8 +1610,70 @@ local function OnBeaconGossipSelect(event, player, item, sender, intid, code)
         print("DEBUG DUNGEON TELEPORT: Starting teleport to " .. dungeonLocation.name .. " at map " .. dungeonLocation.mapId)
         StartTeleportChannel(player, dungeonLocation, itemId)
         
+    elseif intid >= 8301 and intid <= 8350 then
+        -- Raid teleportation
+        print("DEBUG RAID TELEPORT: Player selected raid teleportation with intent " .. intid)
+        
+        local playerUpgrades = GetPlayerFunctionalityUpgrades(playerGuid)
+        if not playerUpgrades.raid_access then
+            print("DEBUG RAID TELEPORT: Player doesn't have raid access upgrade")
+            player:SendBroadcastMessage("You need the Raid Access upgrade to use this feature.")
+            player:GossipComplete()
+            return false
+        end
+        
+        local raidIndex = intid - 8300
+        print("DEBUG RAID TELEPORT: Raid index: " .. raidIndex)
+        
+        local discoveredRaids = GetDiscoveredRaids(playerGuid)
+        print("DEBUG RAID TELEPORT: Retrieved " .. #discoveredRaids .. " discovered raids")
+        
+        if not discoveredRaids or not discoveredRaids[raidIndex] then
+            print("DEBUG RAID TELEPORT: Invalid raid selection - index " .. raidIndex .. " not found")
+            player:SendBroadcastMessage("Error: Invalid raid selection.")
+            player:GossipComplete()
+            return false
+        end
+        
+        local selectedRaid = discoveredRaids[raidIndex]
+        print("DEBUG RAID TELEPORT: Selected raid map ID: " .. selectedRaid.mapId)
+        
+        local raidInfo = RAID_DATA[selectedRaid.mapId]
+        
+        if not raidInfo then
+            print("DEBUG RAID TELEPORT: No raid data found for map " .. selectedRaid.mapId)
+            player:SendBroadcastMessage("Error: Raid data not found.")
+            player:GossipComplete()
+            return false
+        end
+        
+        print("DEBUG RAID TELEPORT: Found raid info for: " .. raidInfo.name)
+        
+        if not HasEnoughReagents(player, REAGENTS.TRAVELERS_MARK, 1) then
+            print("DEBUG RAID TELEPORT: Player doesn't have enough reagents")
+            player:SendBroadcastMessage("You need a Traveler's Mark to teleport to raids.")
+            player:GossipComplete()
+            return false
+        end
+        
+        ConsumeReagents(player, REAGENTS.TRAVELERS_MARK, 1)
+        print("DEBUG RAID TELEPORT: Consumed reagents, starting teleport")
+        
+        -- Create location object for raid entrance
+        local raidLocation = {
+            name = raidInfo.name,
+            mapId = raidInfo.entrance.mapId,
+            x = raidInfo.entrance.x,
+            y = raidInfo.entrance.y,
+            z = raidInfo.entrance.z,
+            o = raidInfo.entrance.o
+        }
+        
+        print("DEBUG RAID TELEPORT: Starting teleport to " .. raidLocation.name .. " at map " .. raidLocation.mapId)
+        StartTeleportChannel(player, raidLocation, itemId)
+        
     elseif intid == 8999 then
-        -- Back to main menu from capital cities
+        -- Back to main menu from capital cities, dungeons, or raids
         local updatedLocations = GetPlayerLocations(playerGuid, itemId)
         ShowBeaconMenu(player, itemId, beaconData, updatedLocations)
         player:GossipSendMenu(1, item)
@@ -1508,8 +1765,25 @@ local function OnMapChange(event, player, newMapId, newX, newY, newZ, newO)
         else
             print("DEBUG DUNGEON: ERROR - IsDungeonMap returned true but no dungeon info found!")
         end
+    -- Check if player entered a raid
+    elseif IsRaidMap(newMapId) then
+        print("DEBUG RAID: Player entered a raid!")
+        local raidInfo = RAID_DATA[newMapId]
+        if raidInfo then
+            print("DEBUG RAID: Attempting to save discovery for: " .. raidInfo.name)
+            local wasNew = SaveDiscoveredRaid(playerGuid, newMapId)
+            if wasNew then
+                print("DEBUG RAID: New discovery! Notifying player.")
+                player:SendBroadcastMessage("Raid discovered: " .. raidInfo.name)
+                player:SendBroadcastMessage("This raid is now available in your Beacon's Raid Access menu!")
+            else
+                print("DEBUG RAID: Already discovered - no notification sent")
+            end
+        else
+            print("DEBUG RAID: ERROR - IsRaidMap returned true but no raid info found!")
+        end
     else
-        print("DEBUG DUNGEON: Not a dungeon map - skipping discovery")
+        print("DEBUG INSTANCE: Not a dungeon or raid map - skipping discovery")
     end
 end
 
